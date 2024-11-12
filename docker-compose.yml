@@ -1,0 +1,50 @@
+version: 3.8
+
+services:
+  apiserver:
+    build: .
+    ports:
+      - 5004:5000
+    command: python server.py
+    volumes:
+      - .:/usr/src/app
+    environment:
+      - FLASK_DEBUG=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_BROKER_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=postgresql://pixelface-prod-1:${DB_PASSWORD}@db:5432/pixelface
+    depends_on:
+      - redis
+      - db
+
+  worker:
+    build:
+      context: ./src/worker
+    volumes:
+      - .:/usr/src/app
+    environment:
+      - FLASK_DEBUG=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=postgresql://pixelface-prod-1:${DB_PASSWORD}@db:5432/pixelface
+    depends_on:
+      - apiserver
+      - db
+      - redis
+
+  redis:
+    image: redis:6-alpine
+
+  db:
+    image: "postgres:alpine"
+    environment:
+      POSTGRES_DB: pixelface
+      POSTGRES_USER: pixelface-prod-1
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "5432:5432"
+
+
+  secrets:
+    db_password:
+      external: true
